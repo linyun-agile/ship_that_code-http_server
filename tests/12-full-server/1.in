@@ -1,0 +1,6 @@
+ROUTE GET / index
+ROUTE POST /api/users create_user
+REQUEST GET /
+REQUEST POST /api/users {"name":"alice"}
+REQUEST GET /api/users
+REQUEST GET /missing

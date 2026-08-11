@@ -1,0 +1,3 @@
+GET /a/{x}/b/{y} h
+
+GET /a/foo/b/bar

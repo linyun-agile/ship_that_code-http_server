@@ -1,0 +1,10 @@
+blog.example.com blog
+*.example.com wildcard
+shop.example.com shop
+
+blog.example.com
+shop.example.com:8080
+BLOG.EXAMPLE.COM
+other.example.com
+example.com
+

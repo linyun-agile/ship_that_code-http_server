@@ -1,0 +1,3 @@
+host: example.com
+content-type: text/html
+user-agent: curl/8.5.0

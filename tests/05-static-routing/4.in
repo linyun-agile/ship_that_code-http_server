@@ -1,0 +1,10 @@
+GET / root
+GET /a a
+GET /b b
+GET /c c
+
+GET /
+GET /a
+GET /b
+GET /c
+GET /d

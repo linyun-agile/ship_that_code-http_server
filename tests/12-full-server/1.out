@@ -1,0 +1,8 @@
+index 0
+LOG GET / 200 0
+create_user 16
+LOG POST /api/users 200 16
+405
+LOG GET /api/users 405 0
+404
+LOG GET /missing 404 0

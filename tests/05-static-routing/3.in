@@ -1,0 +1,5 @@
+GET /api index
+POST /api create
+
+PUT /api
+GET /missing
