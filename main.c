@@ -1,29 +1,26 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-static char *strip(char *s) {
-    while (*s && isspace((unsigned char)*s)) s++;
-    char *e = s + strlen(s);
-    while (e > s && isspace((unsigned char)e[-1])) *--e = 0;
-    return s;
-}
-
 int main(void) {
-    char line[4096];
+    char line[8192];
+    char body[65536]; size_t blen = 0;
     while (fgets(line, sizeof line, stdin)) {
-        char *nl = strpbrk(line, "\r\n"); if (nl) *nl = 0;
-        if (line[0] == 0) break;
-        char *colon = strchr(line, ':');
-        if (!colon) { printf("ERR malformed: %s\n", line); continue; }
-        *colon = 0;
-        char *name = strip(line);
-        char *value = strip(colon + 1);
-        /* TODO: lowercase name in-place */
-        for (int i = 0; name[i]; i++) name[i] = tolower((unsigned char)name[i]);
-        
-
-        printf("%s: %s\n", name, value);
+        size_t L = strlen(line);
+        while (L && (line[L-1]=='\n' || line[L-1]=='\r')) line[--L]=0;
+        if (L == 0) continue;
+        char *end; long size = strtol(line, &end, 16);
+        if (end == line) continue;
+        /* TODO: if size == 0, break; else read next line and copy first 'size' bytes into body */
+        if (size == 0) break;
+        if (!fgets(line, sizeof line, stdin)) break;
+        L = strlen(line);
+        while (L && (line[L-1]=='\n' || line[L-1]=='\r')) line[--L]=0;
+        size_t n = (size_t)size < L ? (size_t)size : L;
+        memcpy(body + blen, line, n); blen += n;
     }
+    body[blen] = 0;
+    printf("%s\n", body);
     return 0;
 }
