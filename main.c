@@ -1,48 +1,59 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
-int main(void){
-    int workers = 0;
-    int busy_cid[256]; int busy_ms[256]; int bn = 0;
-    int q_cid[256]; int q_ms[256]; int qh = 0, qt = 0;
-    int done = 0;
-    char line[256];
+static const char *mime_for(const char *path) {
+    const char *dot = strrchr(path, '.');
+    if (!dot) return "application/octet-stream";
+    char ext[16] = {0}; size_t n = strlen(dot); if (n >= sizeof ext) n = sizeof ext - 1;
+    for (size_t i = 0; i < n; i++) ext[i] = tolower((unsigned char)dot[i]);
+    if (!strcmp(ext, ".html")) return "text/html; charset=utf-8";
+    if (!strcmp(ext, ".css"))  return "text/css";
+    if (!strcmp(ext, ".js"))   return "application/javascript";
+    if (!strcmp(ext, ".json")) return "application/json";
+    if (!strcmp(ext, ".png"))  return "image/png";
+    if (!strcmp(ext, ".jpg"))  return "image/jpeg";
+    if (!strcmp(ext, ".gif"))  return "image/gif";
+    if (!strcmp(ext, ".svg"))  return "image/svg+xml";
+    if (!strcmp(ext, ".txt"))  return "text/plain; charset=utf-8";
+    return "application/octet-stream";
+}
+
+/* posix normalize: collapse "//", "/./" and "/x/../" segments */
+static void normalize(const char *in, char *out) {
+    char *segs[64]; int sn = 0;
+    char buf[1024]; size_t bl = 0;
+    int abs = (in[0] == '/');
+    for (size_t i = 0; in[i]; ) {
+        if (in[i] == '/') { i++; continue; }
+        char *start = buf + bl;
+        while (in[i] && in[i] != '/') buf[bl++] = in[i++];
+        buf[bl++] = 0;
+        if (!strcmp(start, ".")) continue;
+        if (!strcmp(start, "..")) { if (sn > 0) sn--; continue; }
+        segs[sn++] = start;
+    }
+    char *o = out; if (abs) *o++ = '/';
+    for (int i = 0; i < sn; i++) {
+        if (i > 0) *o++ = '/';
+        size_t L = strlen(segs[i]); memcpy(o, segs[i], L); o += L;
+    }
+    *o = 0;
+}
+
+int main(void) {
+    char line[2048];
     while (fgets(line, sizeof line, stdin)) {
         size_t L = strlen(line); while (L && (line[L-1]=='\n'||line[L-1]=='\r')) line[--L]=0;
         if (L == 0) continue;
-        char cmd[16]; int a, b;
-        if (sscanf(line, "%15s %d %d", cmd, &a, &b) >= 1) {
-            if (!strcmp(cmd, "WORKERS")) workers = a;
-            else if (!strcmp(cmd, "ARRIVE")) {
-                if (bn < workers) { busy_cid[bn] = a; busy_ms[bn] = b; bn++; printf("STARTED %d\n", a); }
-                else { q_cid[qt] = a; q_ms[qt] = b; qt++; }
-            } else if (!strcmp(cmd, "TICK")) {
-                /* TODO: for each busy worker, decrement ms; if <= 0 remove and print DONE, then dispatch from queue */
-                int write = 0;
-                for (int i = 0; i < bn; i++) {
-                    busy_ms[i]--;
-                    if (busy_ms[i] <= 0) {
-                        done++;
-                        printf("DONE %d\n", busy_cid[i]);
-                    } else {
-                        busy_cid[write] = busy_cid[i];
-                        busy_ms[write] = busy_ms[i];
-                        write++;
-                    }
-                }
-                bn = write;
-                while (bn < workers && qh < qt) {
-                    busy_cid[bn] = q_cid[qh];
-                    busy_ms[bn] = q_ms[qh];
-                    printf("STARTED %d\n", busy_cid[bn]);
-                    bn++;
-                    qh++;
-                }
-            } else if (!strcmp(cmd, "STATUS")) {
-                printf("free=%d busy=%d queued=%d done=%d\n", workers - bn, bn, qt - qh, done);
-            }
-        }
+        char *bar = strchr(line, '|'); if (!bar) continue;
+        *bar = 0; const char *root = line, *rel = bar + 1;
+        char concat[2048]; snprintf(concat, sizeof concat, "%s%s", root, rel);
+        char full[2048]; normalize(concat, full);
+        /* TODO: ensure full is inside root: full == root OR strncmp(full, root, rL) == 0 && full[rL] == '/' */
+        size_t rL = strlen(root);
+        if (!(strcmp(full, root) == 0 || (strncmp(full, root, rL) == 0 && full[rL] == '/'))) { puts("403"); continue; }
+        printf("%s|%s\n", full, mime_for(full));
     }
     return 0;
 }
