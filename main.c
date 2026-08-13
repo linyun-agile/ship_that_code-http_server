@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <ctype.h>
 
 static char *trim(char *s) {
@@ -10,36 +11,51 @@ static char *trim(char *s) {
 }
 
 int main(void) {
-    char line[1024];
+    char line[256];
     while (fgets(line, sizeof line, stdin)) {
         size_t L = strlen(line); while (L && (line[L-1]=='\n'||line[L-1]=='\r')) line[--L]=0;
         if (L == 0) continue;
-        char *bar = strchr(line, '|'); if (!bar) { puts("200"); continue; }
+        char *bar = strchr(line, '|'); if (!bar) continue;
         *bar = 0;
-        char *etag = trim(line);
-        char *header = trim(bar + 1);
-        /* TODO: empty -> 200; "*" -> 304; comma list comparison with W/ normalization */
-        if (header[0] == '\0') { puts("200"); continue; }
-        if (strcmp(header, "*") == 0) { puts("304"); continue; }
+        long size = atol(line);
+        char *spec = trim(bar + 1);
+        char *dash = strchr(spec, '-');
+        if (!dash) { printf("416 */%ld\n", size); continue; }
+        *dash = 0;
+        char *a = trim(spec); char *b = trim(dash + 1);
+        
+        /* TODO: implement range logic */
+        long left = -1, right = -1;
+        if (a[0] != '\0') left = atol(a);
+        if (b[0] != '\0') right = atol(b);
 
-        int matched = 0;
-        char *part = header;
-        while (part && *part) {
-            char *next = strchr(part, ',');
-            if (next) *next = 0;
-
-            char *candidate = trim(part);
-            if (strncmp(candidate, "W/", 2) == 0) candidate += 2;
-            if (strcmp(candidate, etag) == 0) {
-                matched = 1;
-                break;
-            }
-
-            part = next ? next + 1 : NULL;
+        if (left == -1 && right == -1) {
+            printf("416 */%ld\n", size);
+            continue;
         }
 
-        if (matched) { puts("304"); continue; }
-        puts("200");
+        if (left == -1) {
+            long suffix_len = right;
+            if (suffix_len <= 0) {
+                printf("416 */%ld\n", size);
+                continue;
+            }
+            if (suffix_len > size) suffix_len = size;
+            left = size - suffix_len;
+            right = size - 1;
+        } else {
+            if (left >= size) {
+                printf("416 */%ld\n", size);
+                continue;
+            }
+            if (right == -1 || right >= size) right = size - 1;
+            if (right < left) {
+                printf("416 */%ld\n", size);
+                continue;
+            }
+        }
+
+        printf("206 %ld-%ld/%ld %ld\n", left, right, size, right - left + 1);
     }
     return 0;
 }
